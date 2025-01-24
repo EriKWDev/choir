@@ -775,6 +775,16 @@ impl RunningTask {
         }
         self.choir.check_panic()
     }
+
+    /// the name of the task
+    ///
+    /// can be useful for debugging running tasks
+    ///
+    /// note that names of dependencies/continuations are not included, but the fmt::Debug
+    /// implementation contains it all
+    pub fn name(&self) -> &Name {
+        &self.notifier.name
+    }
 }
 
 impl Drop for WorkerHandle {
