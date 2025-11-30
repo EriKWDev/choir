@@ -11,13 +11,13 @@ pub(crate) use std::sync::Arc;
 
 #[cfg(not(loom))]
 pub(crate) use std::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
     Condvar, Mutex, MutexGuard, RwLock,
 };
 
 #[cfg(loom)]
 pub(crate) use loom::sync::{
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
     Condvar, Mutex, MutexGuard, RwLock,
 };
 

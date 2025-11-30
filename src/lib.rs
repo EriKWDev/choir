@@ -14,6 +14,8 @@ Lifetime of a Task:
 
 #![allow(
     renamed_and_removed_lints,
+    let_underscore_drop,
+    let_underscore,
     clippy::new_without_default,
     clippy::unneeded_field_pattern,
     clippy::match_like_matches_macro,
@@ -42,7 +44,7 @@ pub(crate) mod queue;
 pub mod util;
 
 use self::arc::Linearc;
-use crate::compat::{wait_while, Arc, AtomicBool, AtomicUsize, Condvar, Mutex, Ordering, RwLock};
+use crate::compat::{wait_while, Arc, AtomicU32, AtomicUsize, Condvar, Mutex, Ordering, RwLock};
 use crate::queue::{Injector, Steal};
 #[cfg(loom)]
 use loom::thread;
@@ -208,7 +210,7 @@ struct Task {
 
 struct Worker {
     name: String,
-    alive: AtomicBool,
+    alive: AtomicU32,
 }
 
 struct WorkerContext {}
@@ -283,7 +285,7 @@ impl Choir {
     pub fn add_worker(self: &Arc<Self>, name: &str) -> WorkerHandle {
         let worker = Arc::new(Worker {
             name: name.to_string(),
-            alive: AtomicBool::new(true),
+            alive: AtomicU32::new(1),
         });
         let worker_clone = Arc::clone(&worker);
         let choir = Arc::clone(self);
@@ -439,7 +441,7 @@ impl Choir {
         let index = self.register().unwrap();
         log::info!("Thread[{}] = '{}' started", index, worker.name);
 
-        while worker.alive.load(Ordering::Acquire) {
+        while worker.alive.load(Ordering::Acquire) == 1 {
             match self.injector.steal() {
                 Steal::Empty => {
                     log::trace!("Thread[{}] sleeps", index);
@@ -450,8 +452,9 @@ impl Choir {
                     // and the thread going on the way to sleep.
                     *parked_mask |= mask;
                     parked_mask = wait_while(&self.condvar, parked_mask, |_| {
-                        worker.alive.load(Ordering::Acquire) && self.injector.is_empty()
+                        worker.alive.load(Ordering::Acquire) == 1 && self.injector.is_empty()
                     });
+
                     *parked_mask &= !mask;
                 }
                 Steal::Success(task) => {
@@ -809,7 +812,7 @@ impl RunningTask {
 
 impl Drop for WorkerHandle {
     fn drop(&mut self) {
-        self.worker.alive.store(false, Ordering::Release);
+        self.worker.alive.store(0, Ordering::Release);
         let handle = self.join_handle.take().unwrap();
         // make sure it wakes up and checks if it's still alive
         // Locking the mutex is required to guarantee that the worker loop
